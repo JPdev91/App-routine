@@ -1,323 +1,434 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Shield, Dumbbell, Home, Brain, Users, CheckCircle, AlertTriangle, Play, Pause, RotateCcw, Lock, X } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Reconstrução | Sistema Operacional</title>
+    <!-- Tailwind CSS via CDN para estilização rápida e responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Configurações Globais */
+        body {
+            background-color: #111827; /* gray-900 */
+            color: #F3F4F6; /* gray-100 */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: 80px; /* Espaço para navbar */
+        }
 
-const App = () => {
-  // --- Estados ---
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [contactDate, setContactDate] = useState(() => {
-    const saved = localStorage.getItem('contactDate');
-    return saved ? new Date(saved) : new Date();
-  });
-  const [tasks, setTasks] = useState(() => {
-    const saved = localStorage.getItem('dailyTasks');
-    const today = new Date().toDateString();
-    // Reseta tarefas se mudou o dia
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.date === today) return parsed.items;
-    }
-    return {
-      treino: false,
-      dieta: false,
-      aparencia: false,
-      casa: false,
-      stalk: false, // false significa que NÃO stalkeou (sucesso)
-      trabalho: false
-    };
-  });
+        /* Utilitários de Animação */
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-  // Timer Estado
-  const [timerSeconds, setTimerSeconds] = useState(900); // 15 min
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const timerRef = useRef(null);
+        /* Estilos de Componentes */
+        .card {
+            background-color: #1F2937; /* gray-800 */
+            border: 1px solid #374151; /* gray-700 */
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
 
-  // --- Efeitos ---
-  useEffect(() => {
-    localStorage.setItem('dailyTasks', JSON.stringify({
-      date: new Date().toDateString(),
-      items: tasks
-    }));
-  }, [tasks]);
+        .nav-item.active { color: #10B981; /* emerald-500 */ }
+        .nav-item { color: #9CA3AF; /* gray-400 */ transition: color 0.2s; }
 
-  useEffect(() => {
-    localStorage.setItem('contactDate', contactDate.toISOString());
-  }, [contactDate]);
+        .check-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            background-color: rgba(55, 65, 81, 0.3); /* gray-700 com opacidade */
+        }
+        .check-item:active { transform: scale(0.98); }
+        .check-item.checked {
+            background-color: rgba(16, 185, 129, 0.1); /* emerald-900/30 */
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .check-item.checked .label { color: #34D399; /* emerald-400 */ }
+        .check-circle {
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            border: 2px solid #6B7280; /* gray-500 */
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .check-item.checked .check-circle {
+            background-color: #10B981;
+            border-color: #10B981;
+        }
 
-  useEffect(() => {
-    if (isTimerRunning && timerSeconds > 0) {
-      timerRef.current = setInterval(() => {
-        setTimerSeconds(prev => prev - 1);
-      }, 1000);
-    } else if (timerSeconds === 0) {
-      setIsTimerRunning(false);
-      toggleTask('casa'); // Marca automaticamente se acabou o tempo
-    }
-    return () => clearInterval(timerRef.current);
-  }, [isTimerRunning, timerSeconds]);
+        /* Timer */
+        .timer-display {
+            font-family: 'Courier New', Courier, monospace;
+            font-variant-numeric: tabular-nums;
+        }
+    </style>
+</head>
+<body>
 
-  // --- Lógica Auxiliar ---
-  const daysNoContact = Math.floor((new Date() - new Date(contactDate)) / (1000 * 60 * 60 * 24));
-
-  const toggleTask = (key) => {
-    setTasks(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const formatTime = (secs) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  const resetContact = () => {
-    if (confirm("Tem certeza que quebrou o contato zero? Isso resetará seu contador.")) {
-      setContactDate(new Date());
-    }
-  };
-
-  const getDayOfWeek = () => {
-    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    return days[new Date().getDay()];
-  };
-
-  // --- Componentes de UI ---
-  const Card = ({ title, icon: Icon, children, className = "" }) => (
-    <div className={`bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-lg mb-4 ${className}`}>
-      <div className="flex items-center gap-3 mb-4 border-b border-gray-700 pb-2">
-        <Icon className="text-emerald-500" size={24} />
-        <h2 className="text-lg font-bold text-gray-100 uppercase tracking-wide">{title}</h2>
-      </div>
-      {children}
-    </div>
-  );
-
-  const CheckItem = ({ label, checked, onClick, subtext }) => (
-    <div 
-      onClick={onClick}
-      className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all mb-2 ${checked ? 'bg-emerald-900/30 border border-emerald-500/50' : 'bg-gray-700/50 border border-transparent'}`}
-    >
-      <div>
-        <div className={`font-medium ${checked ? 'text-emerald-400' : 'text-gray-300'}`}>{label}</div>
-        {subtext && <div className="text-xs text-gray-500">{subtext}</div>}
-      </div>
-      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${checked ? 'bg-emerald-500 border-emerald-500' : 'border-gray-500'}`}>
-        {checked && <CheckCircle size={16} className="text-white" />}
-      </div>
-    </div>
-  );
-
-  // --- Views ---
-
-  const DashboardView = () => {
-    const score = [tasks.trabalho, (tasks.treino || tasks.casa), tasks.stalk].filter(Boolean).length;
-    const isDayValid = score >= 2;
-
-    return (
-      <div className="space-y-4">
-        {/* Header Quote */}
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-xl border border-gray-700 text-center">
-          <p className="text-gray-400 text-sm uppercase tracking-widest mb-2">Princípio Central</p>
-          <p className="text-xl font-bold text-white italic">"Você não vai se sentir bem para agir. Você vai agir até começar a se sentir bem."</p>
-        </div>
-
-        {/* Contact Zero Counter */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col items-center justify-center">
-            <span className="text-4xl font-black text-emerald-500">{daysNoContact}</span>
-            <span className="text-xs text-gray-400 uppercase mt-1">Dias Contato Zero</span>
-          </div>
-          <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col items-center justify-center">
-            <span className={`text-4xl font-black ${isDayValid ? 'text-emerald-500' : 'text-gray-600'}`}>
-              {score}/3
-            </span>
-            <span className="text-xs text-gray-400 uppercase mt-1">Score Diário</span>
-          </div>
-        </div>
-
-        {/* Quick Check */}
-        <Card title="Rotina Realista (Hoje)" icon={CheckCircle}>
-          <CheckItem label="Trabalhou / Produziu" checked={tasks.trabalho} onClick={() => toggleTask('trabalho')} />
-          <CheckItem label="Treinou OU Cuidou da Casa" checked={tasks.treino || tasks.casa} onClick={() => {}} subtext="Marca automaticamente ao completar as seções específicas" />
-          <CheckItem label="Não Stalkeou / Contato Zero" checked={tasks.stalk} onClick={() => toggleTask('stalk')} />
-          
-          <div className={`mt-4 text-center p-2 rounded ${isDayValid ? 'bg-emerald-900/50 text-emerald-300' : 'bg-gray-700 text-gray-400'}`}>
-            {isDayValid ? "✅ Dia Válido. A dignidade foi mantida." : "Complete pelo menos 2 tarefas."}
-          </div>
-        </Card>
-      </div>
-    );
-  };
-
-  const BodyView = () => {
-    const today = getDayOfWeek();
-    const isWorkoutDay = ['Seg', 'Qua', 'Sex'].includes(today);
-
-    return (
-      <div className="space-y-4">
-        <Card title="O Templo (Corpo)" icon={Dumbbell}>
-          <div className="mb-4">
-            <p className="text-sm text-gray-400 mb-2">Hoje é <span className="text-white font-bold">{today}</span>. {isWorkoutDay ? "Dia de Guerra. Sem negociação." : "Descanso ou Cardio Leve."}</p>
-            <CheckItem label="Treino Feito" checked={tasks.treino} onClick={() => toggleTask('treino')} />
-          </div>
-          
-          <div className="bg-gray-900/50 p-4 rounded-lg text-sm text-gray-300 space-y-2">
-            <p className="font-bold text-emerald-500 mb-2">Ficha (Seg / Qua / Sex):</p>
-            <div className="flex justify-between border-b border-gray-700 pb-1"><span>Peito (Supino/Flexão)</span> <span>3x 8-12</span></div>
-            <div className="flex justify-between border-b border-gray-700 pb-1"><span>Costas (Remada/Puxada)</span> <span>3x 8-12</span></div>
-            <div className="flex justify-between border-b border-gray-700 pb-1"><span>Pernas (Agachamento)</span> <span>3x 8-12</span></div>
-            <div className="flex justify-between border-b border-gray-700 pb-1"><span>Ombros (Desenv.)</span> <span>3x 8-12</span></div>
-            <div className="flex justify-between"><span>Abdômen</span> <span>3 séries</span></div>
-          </div>
-        </Card>
-
-        <Card title="Combustível (Dieta)" icon={Shield}>
-          <CheckItem label="Proteína Ingerida" subtext="Ovos, carne, frango ou whey" checked={tasks.dieta} onClick={() => toggleTask('dieta')} />
-          <div className="mt-4 p-3 bg-red-900/20 border border-red-900/50 rounded text-red-200 text-xs">
-            🚫 Não é dieta, é manutenção da dignidade. Evite lixo e álcool.
-          </div>
-        </Card>
-
-        <Card title="Armadura (Aparência)" icon={Users}>
-           <p className="text-xs text-gray-400 mb-3">"90% das pessoas não são feias, são descuidadas."</p>
-           <CheckItem label="Checklist Visual" subtext="Cabelo, Barba, Roupa ajustada, Postura" checked={tasks.aparencia} onClick={() => toggleTask('aparencia')} />
-        </Card>
-      </div>
-    );
-  };
-
-  const MindView = () => (
-    <div className="space-y-4">
-      <Card title="Regra do Contato Zero" icon={Lock} className="border-red-900/50">
-        <div className="text-center mb-6">
-          <div className="text-6xl font-black text-white mb-2">{daysNoContact}</div>
-          <div className="text-sm text-gray-400 uppercase">Dias de Liberdade</div>
-        </div>
-
-        <div className="space-y-2 mb-6">
-          <div className="flex items-center gap-2 text-gray-300 text-sm"><X size={14} className="text-red-500" /> Não stalkear</div>
-          <div className="flex items-center gap-2 text-gray-300 text-sm"><X size={14} className="text-red-500" /> Não procurar</div>
-          <div className="flex items-center gap-2 text-gray-300 text-sm"><X size={14} className="text-red-500" /> Não perguntar sobre ela</div>
-        </div>
-
-        <button 
-          onClick={resetContact}
-          className="w-full py-2 bg-red-900/30 text-red-400 text-xs rounded hover:bg-red-900/50 transition-colors uppercase font-bold tracking-wider"
-        >
-          Recaí (Resetar Contador)
-        </button>
-      </Card>
-
-      <div className="bg-emerald-900/20 p-6 rounded-xl border border-emerald-900/50 text-center">
-        <Brain className="mx-auto text-emerald-500 mb-3" size={32} />
-        <h3 className="text-white font-bold text-lg mb-2">Pensamento Chave</h3>
-        <p className="text-gray-300 italic">"Ela fez uma escolha. Agora eu faço as minhas."</p>
-        <p className="text-gray-500 text-xs mt-4">Repita isso. Não discuta com o pensamento.</p>
-      </div>
-
-      <Card title="Ambiente (Casa)" icon={Home}>
-        <p className="text-sm text-gray-400 mb-4">Casa bagunçada = Mente confusa. 15 minutos salvam o dia.</p>
+    <!-- Wrapper Responsivo -->
+    <div class="w-full max-w-md md:max-w-xl mx-auto p-4 md:p-6 min-h-screen">
         
-        <div className="flex flex-col items-center justify-center bg-gray-900 rounded-lg p-6 mb-4">
-          <div className="text-5xl font-mono text-white mb-4 tracking-widest">
-            {formatTime(timerSeconds)}
-          </div>
-          <div className="flex gap-4">
-            <button 
-              onClick={() => setIsTimerRunning(!isTimerRunning)}
-              className={`flex items-center gap-2 px-6 py-2 rounded-full font-bold ${isTimerRunning ? 'bg-yellow-600 text-white' : 'bg-emerald-600 text-white'}`}
-            >
-              {isTimerRunning ? <Pause size={18} /> : <Play size={18} />}
-              {isTimerRunning ? 'Pausar' : 'Iniciar'}
-            </button>
-            <button 
-              onClick={() => { setIsTimerRunning(false); setTimerSeconds(900); }}
-              className="p-2 bg-gray-700 text-gray-300 rounded-full"
-            >
-              <RotateCcw size={18} />
-            </button>
-          </div>
-        </div>
-        <CheckItem label="Limpeza Concluída" checked={tasks.casa} onClick={() => toggleTask('casa')} />
-      </Card>
-    </div>
-  );
-
-  const SocialView = () => (
-    <div className="space-y-4">
-      <Card title="Vida Social" icon={Users}>
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-emerald-400 font-bold mb-2">Fase 1: Reaprender a existir</h3>
-            <ul className="text-sm text-gray-300 space-y-2 list-disc pl-4">
-              <li>Ir para a Academia (ser visto).</li>
-              <li>Focar no trabalho.</li>
-              <li>Ir a um ambiente social simples (bar, curso, hobby).</li>
-              <li className="text-gray-500 italic">Não vá para "pegar alguém". Vá para viver.</li>
-            </ul>
-          </div>
-          
-          <div className="pt-4 border-t border-gray-700">
-            <h3 className="text-gray-400 font-bold mb-2">Fase 2 (Após 30-45 dias)</h3>
-            <ul className="text-sm text-gray-500 space-y-2 list-disc pl-4">
-              <li>Conversar sem expectativa.</li>
-              <li>Elogio simples e humor leve.</li>
-              <li><span className="text-red-400">Proibido:</span> Comparar qualquer pessoa com a ex.</li>
-            </ul>
-          </div>
-        </div>
-      </Card>
-      
-      <div className="p-4 rounded-xl border border-gray-700 bg-gray-800 text-center">
-        <p className="text-gray-300 font-bold">"Homem focado em si atrai mais do que homem carente."</p>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 font-sans pb-24">
-      <div className="max-w-md mx-auto p-4">
-        {/* Header */}
-        <header className="flex items-center justify-between py-4 mb-2">
-          <div>
-            <h1 className="text-xl font-black uppercase tracking-tighter text-white">Reconstrução</h1>
-            <p className="text-xs text-emerald-500 font-bold uppercase">Sistema Operacional</p>
-          </div>
-          <div className="bg-gray-800 px-3 py-1 rounded-full border border-gray-700">
-            <span className="text-xs font-mono text-gray-400">{new Date().toLocaleDateString('pt-BR')}</span>
-          </div>
+        <!-- Header -->
+        <header class="flex items-center justify-between py-4 mb-4">
+            <div>
+                <h1 class="text-2xl font-black uppercase tracking-tighter text-white leading-none">Reconstrução</h1>
+                <p class="text-[10px] sm:text-xs text-emerald-500 font-bold uppercase tracking-widest mt-1">Sistema Operacional</p>
+            </div>
+            <div class="bg-gray-800 px-3 py-1 rounded-full border border-gray-700 shadow-sm">
+                <span id="current-date" class="text-xs font-mono text-gray-400"></span>
+            </div>
         </header>
 
-        {/* Content Area */}
-        <main className="animate-fade-in">
-          {activeTab === 'dashboard' && <DashboardView />}
-          {activeTab === 'body' && <BodyView />}
-          {activeTab === 'mind' && <MindView />}
-          {activeTab === 'social' && <SocialView />}
+        <!-- Área de Conteúdo (Views) -->
+        <main id="app-content" class="fade-in">
+            <!-- O conteúdo será injetado aqui pelo JavaScript -->
         </main>
-      </div>
 
-      {/* Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-gray-800/90 backdrop-blur-md border-t border-gray-700 px-6 py-3 pb-6 safe-area-pb">
-        <div className="max-w-md mx-auto flex justify-between items-center">
-          <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center ${activeTab === 'dashboard' ? 'text-emerald-500' : 'text-gray-500'}`}>
-            <Home size={22} />
-            <span className="text-[10px] mt-1 font-bold">Geral</span>
-          </button>
-          <button onClick={() => setActiveTab('body')} className={`flex flex-col items-center ${activeTab === 'body' ? 'text-emerald-500' : 'text-gray-500'}`}>
-            <Dumbbell size={22} />
-            <span className="text-[10px] mt-1 font-bold">Corpo</span>
-          </button>
-          <button onClick={() => setActiveTab('mind')} className={`flex flex-col items-center ${activeTab === 'mind' ? 'text-emerald-500' : 'text-gray-500'}`}>
-            <Brain size={22} />
-            <span className="text-[10px] mt-1 font-bold">Mente</span>
-          </button>
-          <button onClick={() => setActiveTab('social')} className={`flex flex-col items-center ${activeTab === 'social' ? 'text-emerald-500' : 'text-gray-500'}`}>
-            <Users size={22} />
-            <span className="text-[10px] mt-1 font-bold">Social</span>
-          </button>
-        </div>
-      </nav>
     </div>
-  );
-};
 
-export default App;
+    <!-- Navigation Bar -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-gray-800/95 backdrop-blur-md border-t border-gray-700 px-4 py-2 pb-6 z-50 shadow-lg safe-area-pb">
+        <div class="w-full max-w-md md:max-w-xl mx-auto flex justify-between items-center">
+            <button onclick="router.navigate('dashboard')" class="nav-item flex flex-col items-center p-2 w-1/4" id="nav-dashboard">
+                <i data-lucide="home" class="w-6 h-6 mb-1"></i>
+                <span class="text-[10px] font-bold">Geral</span>
+            </button>
+            <button onclick="router.navigate('body')" class="nav-item flex flex-col items-center p-2 w-1/4" id="nav-body">
+                <i data-lucide="dumbbell" class="w-6 h-6 mb-1"></i>
+                <span class="text-[10px] font-bold">Corpo</span>
+            </button>
+            <button onclick="router.navigate('mind')" class="nav-item flex flex-col items-center p-2 w-1/4" id="nav-mind">
+                <i data-lucide="brain" class="w-6 h-6 mb-1"></i>
+                <span class="text-[10px] font-bold">Mente</span>
+            </button>
+            <button onclick="router.navigate('social')" class="nav-item flex flex-col items-center p-2 w-1/4" id="nav-social">
+                <i data-lucide="users" class="w-6 h-6 mb-1"></i>
+                <span class="text-[10px] font-bold">Social</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Scripts da Aplicação -->
+    <script>
+        // --- Estado Global ---
+        const state = {
+            currentView: 'dashboard',
+            contactDate: new Date(),
+            tasks: {
+                treino: false, dieta: false, aparencia: false,
+                casa: false, stalk: false, trabalho: false
+            },
+            timer: { seconds: 900, isRunning: false, intervalId: null }
+        };
+
+        // --- Persistência (Load/Save) ---
+        function loadData() {
+            try {
+                // Data
+                const dateEl = document.getElementById('current-date');
+                dateEl.innerText = new Date().toLocaleDateString('pt-BR').slice(0, 5);
+
+                // Contato Zero
+                const savedContact = localStorage.getItem('contactDate');
+                if (savedContact) state.contactDate = new Date(savedContact);
+
+                // Tarefas
+                const savedTasks = localStorage.getItem('dailyTasks');
+                if (savedTasks) {
+                    const parsed = JSON.parse(savedTasks);
+                    const today = new Date().toDateString();
+                    if (parsed.date === today) {
+                        state.tasks = parsed.items;
+                    }
+                }
+            } catch (e) { console.error('Erro ao carregar', e); }
+        }
+
+        function saveData() {
+            localStorage.setItem('dailyTasks', JSON.stringify({
+                date: new Date().toDateString(),
+                items: state.tasks
+            }));
+            localStorage.setItem('contactDate', state.contactDate.toISOString());
+            render(); // Re-renderiza para atualizar UI
+        }
+
+        // --- Lógica de Negócio ---
+        function toggleTask(key) {
+            state.tasks[key] = !state.tasks[key];
+            saveData();
+        }
+
+        function getDaysNoContact() {
+            const diff = new Date() - state.contactDate;
+            return Math.floor(diff / (1000 * 60 * 60 * 24));
+        }
+
+        function resetContact() {
+            if (confirm("ATENÇÃO: Tem certeza que recaiu? Isso vai zerar seu progresso de contato zero.")) {
+                state.contactDate = new Date();
+                saveData();
+            }
+        }
+
+        // --- Timer ---
+        function toggleTimer() {
+            if (state.timer.isRunning) {
+                clearInterval(state.timer.intervalId);
+                state.timer.isRunning = false;
+            } else {
+                state.timer.isRunning = true;
+                state.timer.intervalId = setInterval(() => {
+                    if (state.timer.seconds > 0) {
+                        state.timer.seconds--;
+                        updateTimerDisplay();
+                    } else {
+                        // Acabou
+                        clearInterval(state.timer.intervalId);
+                        state.timer.isRunning = false;
+                        state.tasks.casa = true; // Marca tarefa
+                        saveData();
+                        alert("Tempo esgotado! Tarefa de casa concluída.");
+                    }
+                }, 1000);
+            }
+            render(); // Atualiza botão
+        }
+
+        function resetTimer() {
+            state.timer.seconds = 900;
+            state.timer.isRunning = false;
+            clearInterval(state.timer.intervalId);
+            render();
+        }
+
+        function formatTime(s) {
+            const min = Math.floor(s / 60);
+            const sec = s % 60;
+            return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+        }
+
+        function updateTimerDisplay() {
+            const el = document.getElementById('timer-text');
+            if (el) el.innerText = formatTime(state.timer.seconds);
+        }
+
+        // --- Roteamento e Renderização ---
+        const router = {
+            navigate: (view) => {
+                state.currentView = view;
+                render();
+            }
+        };
+
+        function render() {
+            const content = document.getElementById('app-content');
+            const navItems = document.querySelectorAll('.nav-item');
+            
+            // Atualiza Nav
+            navItems.forEach(item => {
+                item.classList.remove('active');
+                if(item.id === `nav-${state.currentView}`) item.classList.add('active');
+            });
+
+            // Renderiza Views
+            if (state.currentView === 'dashboard') {
+                const score = [state.tasks.trabalho, (state.tasks.treino || state.tasks.casa), state.tasks.stalk].filter(Boolean).length;
+                const isValid = score >= 2;
+                
+                content.innerHTML = `
+                    <div class="bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-xl border border-gray-700 text-center shadow-lg mb-4">
+                        <p class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-2">Princípio Central</p>
+                        <p class="text-lg font-bold text-white italic">"Você não vai se sentir bem para agir. Você vai agir até começar a se sentir bem."</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col items-center justify-center">
+                            <span class="text-4xl font-black text-emerald-500">${getDaysNoContact()}</span>
+                            <span class="text-[10px] text-gray-400 uppercase mt-1">Dias Zero</span>
+                        </div>
+                        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col items-center justify-center">
+                            <span class="text-4xl font-black ${isValid ? 'text-emerald-500' : 'text-gray-500'}">${score}/3</span>
+                            <span class="text-[10px] text-gray-400 uppercase mt-1">Score Hoje</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="flex items-center gap-3 mb-4 border-b border-gray-700 pb-2">
+                            <i data-lucide="check-circle" class="text-emerald-500"></i>
+                            <h2 class="text-lg font-bold text-gray-100 uppercase">Rotina Realista</h2>
+                        </div>
+                        ${createCheckItem('Trabalhou / Produziu', state.tasks.trabalho, "toggleTask('trabalho')")}
+                        ${createCheckItem('Treinou OU Casa', state.tasks.treino || state.tasks.casa, null, 'Automático ao completar')}
+                        ${createCheckItem('Não Stalkeou', state.tasks.stalk, "toggleTask('stalk')")}
+                        
+                        <div class="mt-4 text-center p-2 rounded text-sm font-bold ${isValid ? 'bg-emerald-900/30 text-emerald-400' : 'bg-gray-700 text-gray-400'}">
+                            ${isValid ? "✅ DIA VÁLIDO. DIGNIDADE MANTIDA." : "Complete pelo menos 2 tarefas."}
+                        </div>
+                    </div>
+                `;
+            } else if (state.currentView === 'body') {
+                const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                const today = days[new Date().getDay()];
+                const isWorkout = ['Seg', 'Qua', 'Sex'].includes(today);
+
+                content.innerHTML = `
+                    <div class="card">
+                        <div class="flex items-center gap-3 mb-4 border-b border-gray-700 pb-2">
+                            <i data-lucide="dumbbell" class="text-emerald-500"></i>
+                            <h2 class="text-lg font-bold text-gray-100 uppercase">O Templo</h2>
+                        </div>
+                        <p class="text-sm text-gray-400 mb-4">Hoje é <span class="text-white font-bold">${today}</span>. ${isWorkout ? 'Dia de Guerra.' : 'Descanso/Cardio.'}</p>
+                        ${createCheckItem('Treino Feito', state.tasks.treino, "toggleTask('treino')")}
+                        
+                        <div class="bg-gray-900/50 p-4 rounded-lg text-sm text-gray-300 mt-4 space-y-2">
+                            <p class="font-bold text-emerald-500 mb-2">Ficha (Seg / Qua / Sex):</p>
+                            <div class="flex justify-between border-b border-gray-700 pb-1"><span>Peito (Supino)</span> <span>3x 8-12</span></div>
+                            <div class="flex justify-between border-b border-gray-700 pb-1"><span>Costas (Remada)</span> <span>3x 8-12</span></div>
+                            <div class="flex justify-between border-b border-gray-700 pb-1"><span>Pernas (Agachamento)</span> <span>3x 8-12</span></div>
+                            <div class="flex justify-between border-b border-gray-700 pb-1"><span>Ombros (Desenv.)</span> <span>3x 8-12</span></div>
+                            <div class="flex justify-between"><span>Abdômen</span> <span>3 séries</span></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="flex items-center gap-3 mb-4 border-b border-gray-700 pb-2">
+                            <i data-lucide="shield" class="text-emerald-500"></i>
+                            <h2 class="text-lg font-bold text-gray-100 uppercase">Combustível</h2>
+                        </div>
+                        ${createCheckItem('Proteína Ingerida', state.tasks.dieta, "toggleTask('dieta')", "Ovos, carne, frango ou whey")}
+                        <div class="mt-4 p-3 bg-red-900/20 border border-red-900/50 rounded text-red-200 text-xs">
+                            🚫 Não é dieta, é manutenção da dignidade. Evite lixo.
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="flex items-center gap-3 mb-4 border-b border-gray-700 pb-2">
+                            <i data-lucide="user" class="text-emerald-500"></i>
+                            <h2 class="text-lg font-bold text-gray-100 uppercase">Armadura</h2>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-3 italic">"90% das pessoas não são feias, são descuidadas."</p>
+                        ${createCheckItem('Checklist Visual', state.tasks.aparencia, "toggleTask('aparencia')", "Cabelo, Barba, Roupa, Postura")}
+                    </div>
+                `;
+            } else if (state.currentView === 'mind') {
+                content.innerHTML = `
+                    <div class="card border-red-900/50" style="border-color: rgba(127, 29, 29, 0.5);">
+                        <div class="flex items-center gap-3 mb-4 border-b border-gray-700 pb-2">
+                            <i data-lucide="lock" class="text-emerald-500"></i>
+                            <h2 class="text-lg font-bold text-gray-100 uppercase">Contato Zero</h2>
+                        </div>
+                        <div class="text-center mb-6">
+                            <div class="text-6xl font-black text-white leading-none">${getDaysNoContact()}</div>
+                            <div class="text-xs text-gray-400 uppercase tracking-widest mt-2">Dias de Liberdade</div>
+                        </div>
+                        <div class="space-y-2 mb-6 text-sm text-gray-300">
+                            <div class="flex items-center gap-2"><i data-lucide="x" class="w-4 h-4 text-red-500"></i> Não stalkear</div>
+                            <div class="flex items-center gap-2"><i data-lucide="x" class="w-4 h-4 text-red-500"></i> Não procurar</div>
+                            <div class="flex items-center gap-2"><i data-lucide="x" class="w-4 h-4 text-red-500"></i> Não perguntar</div>
+                        </div>
+                        <button onclick="resetContact()" class="w-full py-3 bg-red-900/30 text-red-400 text-xs font-bold rounded hover:bg-red-900/50 uppercase tracking-wider">
+                            Recaí (Resetar)
+                        </button>
+                    </div>
+
+                    <div class="bg-emerald-900/10 p-6 rounded-xl border border-emerald-900/50 text-center mb-4">
+                        <i data-lucide="brain" class="mx-auto text-emerald-500 w-8 h-8 mb-3"></i>
+                        <p class="text-gray-300 italic text-lg">"Ela fez uma escolha. Agora eu faço as minhas."</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="flex items-center gap-3 mb-4 border-b border-gray-700 pb-2">
+                            <i data-lucide="home" class="text-emerald-500"></i>
+                            <h2 class="text-lg font-bold text-gray-100 uppercase">Ambiente</h2>
+                        </div>
+                        <p class="text-sm text-gray-400 mb-4">Casa bagunçada = Mente confusa.</p>
+                        
+                        <div class="bg-gray-900 rounded-lg p-6 mb-4 flex flex-col items-center">
+                            <div id="timer-text" class="text-5xl font-mono text-white mb-6 tracking-widest">${formatTime(state.timer.seconds)}</div>
+                            <div class="flex gap-4">
+                                <button onclick="toggleTimer()" class="flex items-center gap-2 px-6 py-2 rounded-full font-bold text-white transition-colors ${state.timer.isRunning ? 'bg-yellow-600' : 'bg-emerald-600'}">
+                                    <i data-lucide="${state.timer.isRunning ? 'pause' : 'play'}" class="w-4 h-4"></i>
+                                    ${state.timer.isRunning ? 'PAUSAR' : 'INICIAR'}
+                                </button>
+                                <button onclick="resetTimer()" class="p-2 bg-gray-700 rounded-full text-gray-300">
+                                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+                        </div>
+                        ${createCheckItem('Limpeza Concluída', state.tasks.casa, "toggleTask('casa')")}
+                    </div>
+                `;
+            } else if (state.currentView === 'social') {
+                content.innerHTML = `
+                    <div class="card">
+                        <div class="flex items-center gap-3 mb-4 border-b border-gray-700 pb-2">
+                            <i data-lucide="users" class="text-emerald-500"></i>
+                            <h2 class="text-lg font-bold text-gray-100 uppercase">Vida Social</h2>
+                        </div>
+                        
+                        <h3 class="text-emerald-400 font-bold mb-2">Fase 1: Reaprender a existir</h3>
+                        <ul class="text-sm text-gray-300 space-y-2 list-disc pl-4 mb-6">
+                            <li>Ir para a Academia (ser visto).</li>
+                            <li>Focar no trabalho.</li>
+                            <li>Ir a um ambiente social simples.</li>
+                            <li class="text-gray-500 italic">Não vá para "pegar alguém". Vá para viver.</li>
+                        </ul>
+
+                        <div class="h-px bg-gray-700 my-4"></div>
+
+                        <h3 class="text-gray-400 font-bold mb-2">Fase 2 (Após 30-45 dias)</h3>
+                        <ul class="text-sm text-gray-500 space-y-2 list-disc pl-4">
+                            <li>Conversar sem expectativa.</li>
+                            <li>Elogio simples e humor leve.</li>
+                            <li class="text-red-400">Proibido: Comparar com a ex.</li>
+                        </ul>
+                    </div>
+
+                    <div class="p-6 rounded-xl border border-gray-700 bg-gray-800 text-center">
+                        <p class="text-gray-300 font-bold">"Homem focado em si atrai mais do que homem carente."</p>
+                    </div>
+                `;
+            }
+
+            // Re-inicializa ícones Lucide após renderizar novo HTML
+            lucide.createIcons();
+        }
+
+        // --- Helpers de HTML ---
+        function createCheckItem(label, checked, onClickStr, subtext = '') {
+            const clickAttr = onClickStr ? `onclick="${onClickStr}"` : '';
+            const checkedClass = checked ? 'checked' : '';
+            const icon = checked ? '<i data-lucide="check" class="text-white w-4 h-4"></i>' : '';
+            
+            return `
+                <div class="check-item ${checkedClass}" ${clickAttr}>
+                    <div>
+                        <div class="label font-semibold text-sm ${checked ? 'text-emerald-400' : 'text-gray-300'}">${label}</div>
+                        ${subtext ? `<div class="text-xs text-gray-500">${subtext}</div>` : ''}
+                    </div>
+                    <div class="check-circle shrink-0">
+                        ${icon}
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- Inicialização ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            render();
+        });
+
+    </script>
+</body>
+</html>
