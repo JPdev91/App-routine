@@ -1,0 +1,323 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Shield, Dumbbell, Home, Brain, Users, CheckCircle, AlertTriangle, Play, Pause, RotateCcw, Lock, X } from 'lucide-react';
+
+const App = () => {
+  // --- Estados ---
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [contactDate, setContactDate] = useState(() => {
+    const saved = localStorage.getItem('contactDate');
+    return saved ? new Date(saved) : new Date();
+  });
+  const [tasks, setTasks] = useState(() => {
+    const saved = localStorage.getItem('dailyTasks');
+    const today = new Date().toDateString();
+    // Reseta tarefas se mudou o dia
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.date === today) return parsed.items;
+    }
+    return {
+      treino: false,
+      dieta: false,
+      aparencia: false,
+      casa: false,
+      stalk: false, // false significa que NÃO stalkeou (sucesso)
+      trabalho: false
+    };
+  });
+
+  // Timer Estado
+  const [timerSeconds, setTimerSeconds] = useState(900); // 15 min
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const timerRef = useRef(null);
+
+  // --- Efeitos ---
+  useEffect(() => {
+    localStorage.setItem('dailyTasks', JSON.stringify({
+      date: new Date().toDateString(),
+      items: tasks
+    }));
+  }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem('contactDate', contactDate.toISOString());
+  }, [contactDate]);
+
+  useEffect(() => {
+    if (isTimerRunning && timerSeconds > 0) {
+      timerRef.current = setInterval(() => {
+        setTimerSeconds(prev => prev - 1);
+      }, 1000);
+    } else if (timerSeconds === 0) {
+      setIsTimerRunning(false);
+      toggleTask('casa'); // Marca automaticamente se acabou o tempo
+    }
+    return () => clearInterval(timerRef.current);
+  }, [isTimerRunning, timerSeconds]);
+
+  // --- Lógica Auxiliar ---
+  const daysNoContact = Math.floor((new Date() - new Date(contactDate)) / (1000 * 60 * 60 * 24));
+
+  const toggleTask = (key) => {
+    setTasks(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const resetContact = () => {
+    if (confirm("Tem certeza que quebrou o contato zero? Isso resetará seu contador.")) {
+      setContactDate(new Date());
+    }
+  };
+
+  const getDayOfWeek = () => {
+    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    return days[new Date().getDay()];
+  };
+
+  // --- Componentes de UI ---
+  const Card = ({ title, icon: Icon, children, className = "" }) => (
+    <div className={`bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-lg mb-4 ${className}`}>
+      <div className="flex items-center gap-3 mb-4 border-b border-gray-700 pb-2">
+        <Icon className="text-emerald-500" size={24} />
+        <h2 className="text-lg font-bold text-gray-100 uppercase tracking-wide">{title}</h2>
+      </div>
+      {children}
+    </div>
+  );
+
+  const CheckItem = ({ label, checked, onClick, subtext }) => (
+    <div 
+      onClick={onClick}
+      className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all mb-2 ${checked ? 'bg-emerald-900/30 border border-emerald-500/50' : 'bg-gray-700/50 border border-transparent'}`}
+    >
+      <div>
+        <div className={`font-medium ${checked ? 'text-emerald-400' : 'text-gray-300'}`}>{label}</div>
+        {subtext && <div className="text-xs text-gray-500">{subtext}</div>}
+      </div>
+      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${checked ? 'bg-emerald-500 border-emerald-500' : 'border-gray-500'}`}>
+        {checked && <CheckCircle size={16} className="text-white" />}
+      </div>
+    </div>
+  );
+
+  // --- Views ---
+
+  const DashboardView = () => {
+    const score = [tasks.trabalho, (tasks.treino || tasks.casa), tasks.stalk].filter(Boolean).length;
+    const isDayValid = score >= 2;
+
+    return (
+      <div className="space-y-4">
+        {/* Header Quote */}
+        <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-xl border border-gray-700 text-center">
+          <p className="text-gray-400 text-sm uppercase tracking-widest mb-2">Princípio Central</p>
+          <p className="text-xl font-bold text-white italic">"Você não vai se sentir bem para agir. Você vai agir até começar a se sentir bem."</p>
+        </div>
+
+        {/* Contact Zero Counter */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col items-center justify-center">
+            <span className="text-4xl font-black text-emerald-500">{daysNoContact}</span>
+            <span className="text-xs text-gray-400 uppercase mt-1">Dias Contato Zero</span>
+          </div>
+          <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col items-center justify-center">
+            <span className={`text-4xl font-black ${isDayValid ? 'text-emerald-500' : 'text-gray-600'}`}>
+              {score}/3
+            </span>
+            <span className="text-xs text-gray-400 uppercase mt-1">Score Diário</span>
+          </div>
+        </div>
+
+        {/* Quick Check */}
+        <Card title="Rotina Realista (Hoje)" icon={CheckCircle}>
+          <CheckItem label="Trabalhou / Produziu" checked={tasks.trabalho} onClick={() => toggleTask('trabalho')} />
+          <CheckItem label="Treinou OU Cuidou da Casa" checked={tasks.treino || tasks.casa} onClick={() => {}} subtext="Marca automaticamente ao completar as seções específicas" />
+          <CheckItem label="Não Stalkeou / Contato Zero" checked={tasks.stalk} onClick={() => toggleTask('stalk')} />
+          
+          <div className={`mt-4 text-center p-2 rounded ${isDayValid ? 'bg-emerald-900/50 text-emerald-300' : 'bg-gray-700 text-gray-400'}`}>
+            {isDayValid ? "✅ Dia Válido. A dignidade foi mantida." : "Complete pelo menos 2 tarefas."}
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
+  const BodyView = () => {
+    const today = getDayOfWeek();
+    const isWorkoutDay = ['Seg', 'Qua', 'Sex'].includes(today);
+
+    return (
+      <div className="space-y-4">
+        <Card title="O Templo (Corpo)" icon={Dumbbell}>
+          <div className="mb-4">
+            <p className="text-sm text-gray-400 mb-2">Hoje é <span className="text-white font-bold">{today}</span>. {isWorkoutDay ? "Dia de Guerra. Sem negociação." : "Descanso ou Cardio Leve."}</p>
+            <CheckItem label="Treino Feito" checked={tasks.treino} onClick={() => toggleTask('treino')} />
+          </div>
+          
+          <div className="bg-gray-900/50 p-4 rounded-lg text-sm text-gray-300 space-y-2">
+            <p className="font-bold text-emerald-500 mb-2">Ficha (Seg / Qua / Sex):</p>
+            <div className="flex justify-between border-b border-gray-700 pb-1"><span>Peito (Supino/Flexão)</span> <span>3x 8-12</span></div>
+            <div className="flex justify-between border-b border-gray-700 pb-1"><span>Costas (Remada/Puxada)</span> <span>3x 8-12</span></div>
+            <div className="flex justify-between border-b border-gray-700 pb-1"><span>Pernas (Agachamento)</span> <span>3x 8-12</span></div>
+            <div className="flex justify-between border-b border-gray-700 pb-1"><span>Ombros (Desenv.)</span> <span>3x 8-12</span></div>
+            <div className="flex justify-between"><span>Abdômen</span> <span>3 séries</span></div>
+          </div>
+        </Card>
+
+        <Card title="Combustível (Dieta)" icon={Shield}>
+          <CheckItem label="Proteína Ingerida" subtext="Ovos, carne, frango ou whey" checked={tasks.dieta} onClick={() => toggleTask('dieta')} />
+          <div className="mt-4 p-3 bg-red-900/20 border border-red-900/50 rounded text-red-200 text-xs">
+            🚫 Não é dieta, é manutenção da dignidade. Evite lixo e álcool.
+          </div>
+        </Card>
+
+        <Card title="Armadura (Aparência)" icon={Users}>
+           <p className="text-xs text-gray-400 mb-3">"90% das pessoas não são feias, são descuidadas."</p>
+           <CheckItem label="Checklist Visual" subtext="Cabelo, Barba, Roupa ajustada, Postura" checked={tasks.aparencia} onClick={() => toggleTask('aparencia')} />
+        </Card>
+      </div>
+    );
+  };
+
+  const MindView = () => (
+    <div className="space-y-4">
+      <Card title="Regra do Contato Zero" icon={Lock} className="border-red-900/50">
+        <div className="text-center mb-6">
+          <div className="text-6xl font-black text-white mb-2">{daysNoContact}</div>
+          <div className="text-sm text-gray-400 uppercase">Dias de Liberdade</div>
+        </div>
+
+        <div className="space-y-2 mb-6">
+          <div className="flex items-center gap-2 text-gray-300 text-sm"><X size={14} className="text-red-500" /> Não stalkear</div>
+          <div className="flex items-center gap-2 text-gray-300 text-sm"><X size={14} className="text-red-500" /> Não procurar</div>
+          <div className="flex items-center gap-2 text-gray-300 text-sm"><X size={14} className="text-red-500" /> Não perguntar sobre ela</div>
+        </div>
+
+        <button 
+          onClick={resetContact}
+          className="w-full py-2 bg-red-900/30 text-red-400 text-xs rounded hover:bg-red-900/50 transition-colors uppercase font-bold tracking-wider"
+        >
+          Recaí (Resetar Contador)
+        </button>
+      </Card>
+
+      <div className="bg-emerald-900/20 p-6 rounded-xl border border-emerald-900/50 text-center">
+        <Brain className="mx-auto text-emerald-500 mb-3" size={32} />
+        <h3 className="text-white font-bold text-lg mb-2">Pensamento Chave</h3>
+        <p className="text-gray-300 italic">"Ela fez uma escolha. Agora eu faço as minhas."</p>
+        <p className="text-gray-500 text-xs mt-4">Repita isso. Não discuta com o pensamento.</p>
+      </div>
+
+      <Card title="Ambiente (Casa)" icon={Home}>
+        <p className="text-sm text-gray-400 mb-4">Casa bagunçada = Mente confusa. 15 minutos salvam o dia.</p>
+        
+        <div className="flex flex-col items-center justify-center bg-gray-900 rounded-lg p-6 mb-4">
+          <div className="text-5xl font-mono text-white mb-4 tracking-widest">
+            {formatTime(timerSeconds)}
+          </div>
+          <div className="flex gap-4">
+            <button 
+              onClick={() => setIsTimerRunning(!isTimerRunning)}
+              className={`flex items-center gap-2 px-6 py-2 rounded-full font-bold ${isTimerRunning ? 'bg-yellow-600 text-white' : 'bg-emerald-600 text-white'}`}
+            >
+              {isTimerRunning ? <Pause size={18} /> : <Play size={18} />}
+              {isTimerRunning ? 'Pausar' : 'Iniciar'}
+            </button>
+            <button 
+              onClick={() => { setIsTimerRunning(false); setTimerSeconds(900); }}
+              className="p-2 bg-gray-700 text-gray-300 rounded-full"
+            >
+              <RotateCcw size={18} />
+            </button>
+          </div>
+        </div>
+        <CheckItem label="Limpeza Concluída" checked={tasks.casa} onClick={() => toggleTask('casa')} />
+      </Card>
+    </div>
+  );
+
+  const SocialView = () => (
+    <div className="space-y-4">
+      <Card title="Vida Social" icon={Users}>
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-emerald-400 font-bold mb-2">Fase 1: Reaprender a existir</h3>
+            <ul className="text-sm text-gray-300 space-y-2 list-disc pl-4">
+              <li>Ir para a Academia (ser visto).</li>
+              <li>Focar no trabalho.</li>
+              <li>Ir a um ambiente social simples (bar, curso, hobby).</li>
+              <li className="text-gray-500 italic">Não vá para "pegar alguém". Vá para viver.</li>
+            </ul>
+          </div>
+          
+          <div className="pt-4 border-t border-gray-700">
+            <h3 className="text-gray-400 font-bold mb-2">Fase 2 (Após 30-45 dias)</h3>
+            <ul className="text-sm text-gray-500 space-y-2 list-disc pl-4">
+              <li>Conversar sem expectativa.</li>
+              <li>Elogio simples e humor leve.</li>
+              <li><span className="text-red-400">Proibido:</span> Comparar qualquer pessoa com a ex.</li>
+            </ul>
+          </div>
+        </div>
+      </Card>
+      
+      <div className="p-4 rounded-xl border border-gray-700 bg-gray-800 text-center">
+        <p className="text-gray-300 font-bold">"Homem focado em si atrai mais do que homem carente."</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-gray-100 font-sans pb-24">
+      <div className="max-w-md mx-auto p-4">
+        {/* Header */}
+        <header className="flex items-center justify-between py-4 mb-2">
+          <div>
+            <h1 className="text-xl font-black uppercase tracking-tighter text-white">Reconstrução</h1>
+            <p className="text-xs text-emerald-500 font-bold uppercase">Sistema Operacional</p>
+          </div>
+          <div className="bg-gray-800 px-3 py-1 rounded-full border border-gray-700">
+            <span className="text-xs font-mono text-gray-400">{new Date().toLocaleDateString('pt-BR')}</span>
+          </div>
+        </header>
+
+        {/* Content Area */}
+        <main className="animate-fade-in">
+          {activeTab === 'dashboard' && <DashboardView />}
+          {activeTab === 'body' && <BodyView />}
+          {activeTab === 'mind' && <MindView />}
+          {activeTab === 'social' && <SocialView />}
+        </main>
+      </div>
+
+      {/* Navigation Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-gray-800/90 backdrop-blur-md border-t border-gray-700 px-6 py-3 pb-6 safe-area-pb">
+        <div className="max-w-md mx-auto flex justify-between items-center">
+          <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center ${activeTab === 'dashboard' ? 'text-emerald-500' : 'text-gray-500'}`}>
+            <Home size={22} />
+            <span className="text-[10px] mt-1 font-bold">Geral</span>
+          </button>
+          <button onClick={() => setActiveTab('body')} className={`flex flex-col items-center ${activeTab === 'body' ? 'text-emerald-500' : 'text-gray-500'}`}>
+            <Dumbbell size={22} />
+            <span className="text-[10px] mt-1 font-bold">Corpo</span>
+          </button>
+          <button onClick={() => setActiveTab('mind')} className={`flex flex-col items-center ${activeTab === 'mind' ? 'text-emerald-500' : 'text-gray-500'}`}>
+            <Brain size={22} />
+            <span className="text-[10px] mt-1 font-bold">Mente</span>
+          </button>
+          <button onClick={() => setActiveTab('social')} className={`flex flex-col items-center ${activeTab === 'social' ? 'text-emerald-500' : 'text-gray-500'}`}>
+            <Users size={22} />
+            <span className="text-[10px] mt-1 font-bold">Social</span>
+          </button>
+        </div>
+      </nav>
+    </div>
+  );
+};
+
+export default App;
